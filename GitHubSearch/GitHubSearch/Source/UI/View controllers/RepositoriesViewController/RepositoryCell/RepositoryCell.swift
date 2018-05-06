@@ -14,11 +14,13 @@ class RepositoryCell: UITableViewCell {
     
     @IBOutlet var nameLabel: UILabel?
     @IBOutlet var urlLabel: UILabel?
+    @IBOutlet var starsLabel: UILabel?
     
     // MARK: - Public functions
     
     func fill(with cellModel: RepositoryCellModel) {
         self.nameLabel?.text = cellModel.repositoryName
         self.urlLabel?.text = cellModel.repositoryURL
+        self.starsLabel?.text = cellModel.stars
     }
 }

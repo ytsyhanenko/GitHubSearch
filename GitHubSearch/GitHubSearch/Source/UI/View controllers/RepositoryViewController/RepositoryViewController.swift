@@ -47,7 +47,8 @@ class RepositoryViewController: UIViewController, RootViewProtocol {
     // MARK: - Private functions
     
     private func loadPage() {
-        _ = URL(string: self.viewModel.repositoryURL)
+        _ = self.viewModel.repositoryURL
+            .flatMap { URL(string: $0) }
             .map { URLRequest(url: $0) }
             .map { self.rootView?.webView?.load($0) }
     }

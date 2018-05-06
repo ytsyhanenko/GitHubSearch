@@ -14,14 +14,14 @@ class RepositoryViewModel {
     
     let repository: Repository
     
-    let repositoryName: String
-    let repositoryURL: String
+    let repositoryName: String?
+    let repositoryURL: String?
     
     // MARK: - Initialization
     
     init(repository: Repository) {
         self.repository = repository
         self.repositoryName = repository.name
-        self.repositoryURL = repository.url.absoluteString
+        self.repositoryURL = repository.url?.absoluteString
     }
 }

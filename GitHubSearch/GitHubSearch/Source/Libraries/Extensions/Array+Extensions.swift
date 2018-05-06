@@ -15,4 +15,14 @@ extension Array {
             .first
             .flatMap { $0 as? T }
     }
+    
+    static func array<T>(withCount count: Int, factoryBlock block: () -> (T)) -> [T] {
+        var result: [T] = []
+
+        for _ in 0..<count {
+            result.append(block())
+        }
+
+        return result
+    }
 }

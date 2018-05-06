@@ -7,109 +7,76 @@
 //
 
 import Foundation
-
-class SearchOperation: Operation {
-    
-    // MARK: - Overridden properties
-    
-    override var isAsynchronous: Bool {
-        return true
-    }
-    
-    // MARK: - Private properties
-    
-    private var searchProvider: RepositorySearchProvider
-    private var searchText: String
-    private var completionHandler: (Result<[Repository]>) -> () = { _ in }
-    
-    // MARK: - Initialization
-    
-    init(searchProvider: RepositorySearchProvider,
-         searchText: String,
-         onCompletion: @escaping (Result<[Repository]>) -> ())
-    {
-        self.searchProvider = searchProvider
-        self.searchText = searchText
-        self.completionHandler = onCompletion
-    }
-    
-    // MARK: - Overridden functions
-    
-    override func main() {
-        guard !self.isCancelled else { return }
-        
-        self.searchProvider.request(self.searchText, onCompletion: self.completionHandler)
-    }
-}
+import CoreData
 
 class RepositoriesViewModel {
     
-    // MARK: - Public properties
-    
-    var cellModels: [RepositoryCellModel] = []
-    
     // MARK: - Private properties
     
-    private var searchProvider: RepositorySearchProvider
+    private var persistentStoreProvider: PersistentStoreProvider
     private var operationQueue: OperationQueue
     
     // MARK: - Initialization
     
-    init(searchProvider: RepositorySearchProvider) {
-        self.searchProvider = searchProvider
+    init(persistentStoreProvider: PersistentStoreProvider) {
+        self.persistentStoreProvider = persistentStoreProvider
         self.operationQueue = OperationQueue()
     }
     
     // MARK: - Public functions
     
-    func search(
-        _ searchText: String,
-        onStart: (TableViewChangeType) -> (),
-        onCompletion: @escaping (TableViewChangeType) -> ())
-    {
-        let indexPaths = (0..<self.cellModels.count)
-            .map { IndexPath(row: $0, section: 0) }
+    func search(_ searchText: String, onCompletion: @escaping (Result<[Repository]>) -> ()) {
+        let resultArray = ThreadSafeArray<Repository>()
+        let operationQueue = self.operationQueue
+        let persistentStoreProvider = self.persistentStoreProvider
+        let pageCount = Constants.repositoriesPageCount
+        let perPage = Constants.repositoriesPerPage
         
-        self.cellModels.removeAll()
-        onStart(.delete(indexPaths: indexPaths))
+        Repository.deleteAll(inContext: self.persistentStoreProvider.backgroundContext)
         
-        let operationCompletion: (Result<[Repository]>) -> () = { [weak self] result in
-            guard let `self` = self else { return }
-            
-            switch result {
-            case .success(let repositories):
-                let cellModels = repositories.map { RepositoryCellModel(repository: $0) }
-                let startIndex = `self`.cellModels.count
+        var operations = Array(1...pageCount)
+            .map { (pageIndex: Int) -> (Page) in
+                return Page(index: pageIndex, perPage: perPage)
+            }
+            .map { (page: Page) -> (Operation) in
+                let searchProvider = RepositorySearchProvider(persistentStoreProvider: persistentStoreProvider)
                 
-                let indexPaths = (startIndex..<startIndex + cellModels.count)
-                    .map { IndexPath(row: $0, section: 0) }
-                
-                `self`.cellModels.append(contentsOf: cellModels)
-                
-                DispatchQueue.main.async {
-                    onCompletion(.insert(indexPaths: indexPaths))
+                let operation = RepositorySearchOperation(searchText: searchText,
+                                       page: page,
+                                       searchProvider: searchProvider,
+                                       sortBy: .stars,
+                                       orderBy: .descending)
+                { [weak resultArray] result in
+                    switch result {
+                    case .success(let repositories):
+                        resultArray?.append(repositories)
+                    case .failure(let error):
+                        DispatchQueue.main.async {
+                            onCompletion(.failure(error))
+                        }
+                    }
                 }
-            case .failure(let error):
-                break
+                
+                return operation
+            }
+        
+        let resultOperation = BlockOperation {
+            DispatchQueue.main.async {
+                persistentStoreProvider.saveBackgroundContext()
             }
         }
         
-        let firstOperation = SearchOperation(searchProvider: self.searchProvider,
-                                             searchText: searchText,
-                                             onCompletion: operationCompletion)
+        resultOperation.addDependencies(operations)
+        operations.append(resultOperation)
         
-        let secondOperation = SearchOperation(searchProvider: self.searchProvider,
-                                              searchText: searchText,
-                                              onCompletion: operationCompletion)
-
-        secondOperation.addDependency(firstOperation)
-        
-        let operationQueue = self.operationQueue
-        
-        operationQueue.addOperations([firstOperation, secondOperation], waitUntilFinished: false)
+        operationQueue.addOperations(operations, waitUntilFinished: false)
     }
     
     func cancelSearch() {
         self.operationQueue.cancelAllOperations()
+    }
+    
+    func fetchedResultsController() -> NSFetchedResultsController<Repository> {
+        return self.persistentStoreProvider.fetchedResultsController(forEntity: Repository.self, sortBy: Constants.starsCountKey)
     }
 }

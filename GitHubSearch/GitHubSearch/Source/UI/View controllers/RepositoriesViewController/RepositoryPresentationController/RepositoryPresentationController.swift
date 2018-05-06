@@ -2,8 +2,8 @@
 //  RepositoryPresentationController.swift
 //  GitHubSearch
 //
-//  Created by Gene on 5/4/18.
-//  Copyright © 2018 YevhenTsyhanenko. All rights reserved.
+//  Created by Genek on 5/4/18.
+//  Copyright © 2018 Yevhen Tsyhanenko. All rights reserved.
 //
 
 import UIKit
@@ -17,11 +17,14 @@ class RepositoryPresentationController: UIPresentationController {
         let containerViewOrigin = containerView.frame.origin
         let containerViewBounds = containerView.bounds
         
-        let presentedViewOrigin = CGPoint(x: containerViewOrigin.x + containerViewBounds.width * 0.1,
-                                          y: containerViewOrigin.y + containerViewBounds.height * 0.1)
+        let frameRatio: CGFloat = 0.8
+        let edgeIndentRatio = (1 - frameRatio) / 2
         
-        let presentedViewSize = CGSize(width: containerViewBounds.width * 0.8,
-                                       height: containerViewBounds.height * 0.8)
+        let presentedViewOrigin = CGPoint(x: containerViewOrigin.x + containerViewBounds.width * edgeIndentRatio,
+                                          y: containerViewOrigin.y + containerViewBounds.height * edgeIndentRatio)
+        
+        let presentedViewSize = CGSize(width: containerViewBounds.width * frameRatio,
+                                       height: containerViewBounds.height * frameRatio)
         
         return CGRect(origin: presentedViewOrigin, size: presentedViewSize)
     }

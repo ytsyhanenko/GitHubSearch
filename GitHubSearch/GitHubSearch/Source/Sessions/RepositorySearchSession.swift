@@ -1,108 +1,115 @@
 //
-//  RepositoriesSession.swift
+//  Session.swift
 //  GitHubSearch
 //
-//  Created by Genek on 4/30/18.
+//  Created by Genek on 5/6/18.
 //  Copyright © 2018 Yevhen Tsyhanenko. All rights reserved.
 //
 
 import Foundation
 
-enum SessionError: Error {
-    case unspecified
+enum RepositorySortingType: String {
+    case stars = "stars"
+    case forks = "forks"
+    case updated = "updated"
 }
 
-enum Result<T> {
-    case success(T)
-    case failure(Error)
+enum RepositoryOrderType: String {
+    case ascending = "asc"
+    case descending = "desc"
 }
 
-enum HTTPMethod: String {
-    case get = "GET"
-    case post = "POST"
-    case patch = "PATCH"
-    case delete = "DELETE"
-}
-
-class APISession {
-    
-    // MARK: - Public properties
-    
-    var url: URL?
-    var httpMethod: HTTPMethod
-    
-    // MARK: - Initialization
-    
-    init(url: String, httpMethod: HTTPMethod) {
-        self.url = URL(string: url)
-        self.httpMethod = httpMethod
-    }
-}
-
-class GraphQLSession: APISession {
-    
-    // MARK: - Public properties
-    
-    var query: String
-    
-    // MARK: - Initialization
-    
-    init(query: String, url: String, httpMethod: HTTPMethod) {
-        self.query = query
+extension RepositorySearchSession: SessionRequestParametersProtocol {
+    var parameters: [String : String] {
+        let page = self.page
         
-        super.init(url: url, httpMethod: httpMethod)
+        return [API.Keys.searchQuery    :   self.searchText,
+                API.Keys.page           :   "\(page.index)",
+                API.Keys.perPage        :   "\(page.perPage)",
+                API.Keys.order          :   self.order.rawValue,
+                API.Keys.sort           :   self.sorting.rawValue]
     }
 }
 
-class GitHubAPISession: GraphQLSession {
+class RepositorySearchSession: Session, SessionRequestHeadersProtocol {
     
-    // MARK: - Public properties
+    // MARK: - Defaults
     
-    let token = APIConstants.authToken
-}
-
-class RepositorySearchSession: GitHubAPISession {
+    private struct Defaults {
+        static let urlPath = API.URL.searchRepositoriesPath
+    }
+    
+    // MARK: - SessionURL
+    
+    override var urlPath: String {
+        return Defaults.urlPath
+    }
+    
+    // MARK: - Private properties
+    
+    fileprivate var searchText: String
+    fileprivate var page: Page
+    fileprivate var sorting: RepositorySortingType
+    fileprivate var order: RepositoryOrderType
+    private var task: URLSessionDataTask?
     
     // MARK: - Initialization
     
-    init(searchText: String, searchLimit: Int) {
-        super.init(query: APIConstants.repositorySearchQuery(searchText: searchText, searchLimit: searchLimit),
-                   url: APIConstants.url,
-                   httpMethod: .post)
+    init(searchText: String, page: Page, sortBy: RepositorySortingType, orderBy: RepositoryOrderType) {
+        self.searchText = searchText
+        self.page = page
+        self.sorting = sortBy
+        self.order = orderBy
+        
+        super.init(httpMethod: .get, validStatusCodes: [200])
     }
     
     // MARK: - Public functions
     
     func request(onCompletion: @escaping (Result<Data>) -> ()) {
-        guard let url = self.url else {
-            onCompletion(.failure(SessionError.unspecified))
+        guard let request = self.urlRequest() else {
+            onCompletion(.failure(GSError.unspecified))
             
             return
         }
         
-        var request = URLRequest(url: url)
-        let body = [APIConstants.queryKey : self.query]
-        
-        request.httpMethod = self.httpMethod.rawValue
-        request.addValue("bearer \(self.token)", forHTTPHeaderField: APIConstants.authorizationHeader)
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
-        
-        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+        self.task = URLSession.shared.dataTask(with: request) { data, response, error in
             guard error == nil else {
                 onCompletion(.failure(error!))
                 
                 return
             }
             
-            guard let data = data else {
-                onCompletion(.failure(SessionError.unspecified))
+            guard let data = data,
+                let response = response as? HTTPURLResponse,
+                self.validStatusCodes.contains(response.statusCode) else {
+                    onCompletion(.failure(GSError.unspecified))
                 
-                return
-            }
+                    return
+                }
             
             onCompletion(.success(data))
         }
         
-        task.resume()
+        self.task?.resume()
+    }
+    
+    func cancel() {
+        self.task?.cancel()
+    }
+    
+    // MARK: - Private functions
+    
+    private func urlRequest() -> URLRequest? {
+        guard var urlComponents = URLComponents(string: self.url) else { return nil }
+        
+        urlComponents.queryItems = self.parameters
+            .map { URLQueryItem(name: $0.key, value: $0.value) }
+        
+        var request = urlComponents.url.flatMap { URLRequest(url: $0) }
+        
+        self.headers.forEach { request?.setValue($0.value, forHTTPHeaderField: $0.key) }
+        
+        return request
     }
 }

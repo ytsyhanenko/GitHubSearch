@@ -18,8 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?)
         -> Bool
     {
-        let searchProvider = RepositorySearchProvider()
-        let viewModel = RepositoriesViewModel(searchProvider: searchProvider)
+        let persistentStoreProvider = PersistentStoreProvider()
+        let viewModel = RepositoriesViewModel(persistentStoreProvider: persistentStoreProvider)
         let repositoriesViewController = RepositoriesViewController(viewModel: viewModel)
         let navigationController = UINavigationController(rootViewController: repositoriesViewController)
         
