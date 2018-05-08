@@ -20,6 +20,9 @@ class AsynchronousOperation: Operation {
     
     private struct Keys {
         static let state = "state"
+        static let isReady = "isReady"
+        static let isExecuting = "isExecuting"
+        static let isFinished = "isFinished"
     }
     
     // MARK: - Private properties
@@ -43,18 +46,6 @@ class AsynchronousOperation: Operation {
     
     @objc private dynamic var _state: AsynchronousOperationState = .ready
     
-    @objc private dynamic class func keyPathsForValuesAffectingIsReady() -> Set<String> {
-        return [Keys.state]
-    }
-    
-    @objc private dynamic class func keyPathsForValuesAffectingIsExecuting() -> Set<String> {
-        return [Keys.state]
-    }
-    
-    @objc private dynamic class func keyPathsForValuesAffectingIsFinished() -> Set<String> {
-        return [Keys.state]
-    }
-    
     // MARK: - Overridden properties
     
     override var isAsynchronous: Bool {
@@ -74,6 +65,15 @@ class AsynchronousOperation: Operation {
     }
     
     // MARK: - Overridden functions
+    
+    override class func keyPathsForValuesAffectingValue(forKey key: String) -> Set<String> {
+        var keyPaths = super.keyPathsForValuesAffectingValue(forKey: key)
+        if key == Keys.isReady || key == Keys.isExecuting || key == Keys.isFinished {
+            keyPaths.insert(Keys.state)
+        }
+        
+        return keyPaths
+    }
     
     override func start() {
         super.start()

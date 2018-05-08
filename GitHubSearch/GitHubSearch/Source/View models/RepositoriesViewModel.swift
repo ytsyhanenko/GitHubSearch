@@ -60,10 +60,8 @@ class RepositoriesViewModel {
                 return operation
             }
         
-        let resultOperation = BlockOperation {
-            DispatchQueue.main.async {
-                persistentStoreProvider.saveBackgroundContext()
-            }
+        let resultOperation = BlockOperation { [weak persistentStoreProvider] in
+            persistentStoreProvider?.saveBackgroundContext()
         }
         
         resultOperation.addDependencies(operations)

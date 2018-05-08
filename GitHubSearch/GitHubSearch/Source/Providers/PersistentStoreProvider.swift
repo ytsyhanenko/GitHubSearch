@@ -16,6 +16,7 @@ class PersistentStoreProvider {
     lazy var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "GitHubSearch")
         container.loadPersistentStores { _, _ in }
+        container.viewContext.automaticallyMergesChangesFromParent = true
         
         return container
     }()
@@ -40,7 +41,7 @@ class PersistentStoreProvider {
         let sortDescriptor = NSSortDescriptor(key: key, ascending: ascending)
         fetchRequest.sortDescriptors = [sortDescriptor]
         
-        return NSFetchedResultsController<Entity>(fetchRequest: fetchRequest, managedObjectContext: self.backgroundContext, sectionNameKeyPath: nil, cacheName: nil)
+        return NSFetchedResultsController<Entity>(fetchRequest: fetchRequest, managedObjectContext: self.mainContext, sectionNameKeyPath: nil, cacheName: nil)
     }
     
     func deleteAll<T: NSManagedObject>(entity: T.Type) {
